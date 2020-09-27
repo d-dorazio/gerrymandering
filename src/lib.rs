@@ -1,15 +1,15 @@
 mod bitfield;
 pub mod board;
 
+use bitfield::Bitfield;
 pub use board::Board;
 
-use std::collections::HashSet;
 use std::convert::TryFrom;
 
 #[derive(Debug, Clone)]
 struct Candidate {
     board: Board,
-    boundary: HashSet<(i64, i64)>,
+    boundary: Bitfield,
     current_size: i64,
 }
 
@@ -26,13 +26,21 @@ pub fn all_possible_clusters(obstacles: &Board, size: i64) -> Vec<Board> {
     stack.push(Candidate {
         board: Board::new(width, height),
         current_size: 0,
-        boundary: (0..height)
-            .flat_map(|y| (0..width).map(move |x| (x, y)))
-            .filter(|&(xx, yy)| !obstacles.get(xx, yy))
-            .collect(),
+        boundary: {
+            let mut bf = Bitfield::new();
+            for y in 0..height {
+                for x in 0..width {
+                    if !obstacles.get(x, y) {
+                        bf.set(y * width + x);
+                    }
+                }
+            }
+            bf
+        },
     });
 
-    let mut seen = HashSet::new();
+    // TODO: seen could be a dynamic bitfield in case it's needed
+    let mut seen = vec![false; 1 << area];
     let mut result = Vec::new();
 
     while let Some(Candidate {
@@ -46,15 +54,20 @@ pub fn all_possible_clusters(obstacles: &Board, size: i64) -> Vec<Board> {
             continue;
         }
 
-        for &(x, y) in &boundary {
+        for i in boundary.ones() {
+            let x = i % width;
+            let y = i / width;
+
             let mut new_board = board.clone();
             new_board.set(x, y);
 
-            if !seen.insert(new_board.data.data()) {
+            let seen_ix = usize::try_from(new_board.data.data()).unwrap();
+            if seen[seen_ix] {
                 continue;
             }
+            seen[seen_ix] = true;
 
-            let mut new_boundary = HashSet::new();
+            let mut new_boundary = Bitfield::new();
             for yy in 0..height {
                 for xx in 0..width {
                     if new_board.get(xx, yy) || obstacles.get(xx, yy) {
@@ -73,7 +86,7 @@ pub fn all_possible_clusters(obstacles: &Board, size: i64) -> Vec<Board> {
                         continue;
                     }
 
-                    new_boundary.insert((xx, yy));
+                    new_boundary.set(yy * width + xx);
                 }
             }
 
