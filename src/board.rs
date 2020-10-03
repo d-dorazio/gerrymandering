@@ -2,7 +2,7 @@ use crate::bitfield::Bitfield;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Board {
-    pub(crate) data: Bitfield,
+    data: Bitfield,
     width: i64,
     height: i64,
 }
@@ -20,6 +20,12 @@ impl Board {
             width,
             height,
         }
+    }
+
+    /// Unique id for this board configuration among all the others boards of
+    /// the same width and height.
+    pub fn board_id(&self) -> u64 {
+        self.data.data()
     }
 
     pub fn area(&self) -> i64 {
